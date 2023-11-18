@@ -1,0 +1,17 @@
+D:\Documents\C# code\getCosImg\bin\Debug\net6.0\getCosImg.exe
+D:\Documents\C# code\getCosImg\bin\Debug\net6.0\getCosImg.deps.json
+D:\Documents\C# code\getCosImg\bin\Debug\net6.0\getCosImg.runtimeconfig.json
+D:\Documents\C# code\getCosImg\bin\Debug\net6.0\getCosImg.dll
+D:\Documents\C# code\getCosImg\bin\Debug\net6.0\getCosImg.pdb
+D:\Documents\C# code\getCosImg\obj\Debug\net6.0\getCosImg.GeneratedMSBuildEditorConfig.editorconfig
+D:\Documents\C# code\getCosImg\obj\Debug\net6.0\getCosImg.AssemblyInfoInputs.cache
+D:\Documents\C# code\getCosImg\obj\Debug\net6.0\getCosImg.AssemblyInfo.cs
+D:\Documents\C# code\getCosImg\obj\Debug\net6.0\getCosImg.csproj.CoreCompileInputs.cache
+D:\Documents\C# code\getCosImg\obj\Debug\net6.0\getCosImg.dll
+D:\Documents\C# code\getCosImg\obj\Debug\net6.0\refint\getCosImg.dll
+D:\Documents\C# code\getCosImg\obj\Debug\net6.0\getCosImg.pdb
+D:\Documents\C# code\getCosImg\obj\Debug\net6.0\getCosImg.genruntimeconfig.cache
+D:\Documents\C# code\getCosImg\obj\Debug\net6.0\ref\getCosImg.dll
+D:\Documents\C# code\getCosImg\bin\Debug\net6.0\HtmlAgilityPack.dll
+D:\Documents\C# code\getCosImg\obj\Debug\net6.0\getCosImg.csproj.AssemblyReference.cache
+D:\Documents\C# code\getCosImg\obj\Debug\net6.0\getCosImg.csproj.CopyComplete

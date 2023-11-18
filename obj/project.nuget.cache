@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "dgSpecHash": "6X1FkEr4YK0sq5ogQW/MIQ/oQcUlNlZJJv/ECY3zqs1cxvQA+rXRJ1GUQq2ltbe+aD/PtFP4SFaeyw3cwAofpQ==",
+  "success": true,
+  "projectFilePath": "D:\\Documents\\C# code\\getCosImg\\getCosImg.csproj",
+  "expectedPackageFiles": [
+    "C:\\Users\\archi\\.nuget\\packages\\htmlagilitypack\\1.11.54\\htmlagilitypack.1.11.54.nupkg.sha512"
+  ],
+  "logs": []
+}
