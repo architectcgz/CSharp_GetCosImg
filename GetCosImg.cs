@@ -29,7 +29,7 @@ namespace Program
                     await getCosImg.DownLoadAll(dict, titleList, i);
                 }
                 Console.WriteLine($"第{i}页cos图下载完成，请查看文件夹");
-                Console.WriteLine("防止请求速度过快，休眠1秒");
+                Console.WriteLine("防止请求间隔过短，休眠1秒");
                 await Task.Delay(1000);
             }
            
