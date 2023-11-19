@@ -3,13 +3,6 @@ namespace Program
 {
     class Program
     {
-        static void showList<T>(List<T>list)
-        {
-            foreach (var item in list)
-            {
-                Console.WriteLine(item);
-            }
-        }
         static async Task Main(string[] args)
         {
             //string url = "https://www.ciyuanjie.cn/cosplay/";
@@ -21,15 +14,15 @@ namespace Program
             for(int i = pageNumLow;i<= pageNumHigh; i++)
             {
                 Directory.CreateDirectory($"第{i}页cos图");
-                var (titleList, imgURLList) = await getCosImg.getImgURLWithPageNum(i);
+                var imgURLList = await getCosImg.getImgURLWithPageNum(i);
                 Console.WriteLine($"第{i}页有{imgURLList.Count}组图片，开始获取页面中全部图片的url信息");
                 var dict = await getCosImg.getEachImgDetail(imgURLList);
                 for (int j = 0; j < imgURLList.Count; j++)
                 {
-                    await getCosImg.DownLoadAll(dict, titleList, i);
+                    await getCosImg.DownLoadAll(dict, i);
                 }
                 Console.WriteLine($"第{i}页cos图下载完成，请查看文件夹");
-                Console.WriteLine("防止请求间隔过短，休眠1秒");
+                Console.WriteLine("防止请求速度过快，休眠1秒");
                 await Task.Delay(1000);
             }
            
@@ -40,26 +33,23 @@ namespace Program
     }
     class GetCosImg
     {
-        public async Task<(List<string>, List<string>)> getImgURLWithPageNum(int pageNum)
+        public async Task<List<string>> getImgURLWithPageNum(int pageNum)
         {
             if (pageNum <1||pageNum>14)
             {
                 Console.WriteLine("页数范围输入错误,1<=页数<=14！");
-                return (new List<string>(), new List<string>());
+                return new List<string>();
             }
             string url;
             var imgURLList = new List<string>();
-            var imgTitleList = new List<string>();
             url = $"https://www.ciyuanjie.cn/cosplay/page_{pageNum}.html";
             var result = await getImgURLAndTitleOnePage(url);
-            imgURLList.AddRange(result.Item1);
-            imgTitleList.AddRange(result.Item2);
-            return (imgURLList, imgTitleList);
+            imgURLList.AddRange(result);
+            return imgURLList;
         }
-        public async Task<(List<string>,List<string>)> getImgURLAndTitleOnePage(string url)
+        public async Task<List<string>> getImgURLAndTitleOnePage(string url)
         {
             List<string> imgUrlList = new List<string>();
-            List<string> titleList =  new List<string>();
             using HttpClient httpClient = new HttpClient();
             httpClient.DefaultRequestHeaders.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/119.0");
             HttpResponseMessage response = await httpClient.GetAsync(url);
@@ -68,13 +58,6 @@ namespace Program
                 var str = await response.Content.ReadAsStringAsync();
                 HtmlDocument document = new HtmlDocument();
                 document.LoadHtml(str);
-                var titleNodes = document.DocumentNode.SelectNodes("//div[@class='posr-tit']");
-                foreach ( var titleNode in titleNodes )
-                {
-                    //去掉标题字符串中的空格
-                    titleList.Add(titleNode.InnerText.Replace(" ",""));
-                    //Console.WriteLine(title);
-                }
                 var nodes = document.DocumentNode.SelectNodes("//div[@class='kzpost-data']/a[1]");
                 foreach (var node in nodes)
                 {
@@ -83,7 +66,7 @@ namespace Program
                     imgUrlList.Add(href.Substring(1, href.Length - 1));
                 }
             }
-            return (titleList,imgUrlList);
+            return imgUrlList;
         }
         private async Task<Dictionary<string,string>> getImgTitleAndSrcDict(string imgUrl)
         {
@@ -110,7 +93,7 @@ namespace Program
                 var src = node.GetAttributeValue("src", "");
                 Console.WriteLine(src);
                 // alt也就是文件名 注意去除title字符串中的空格
-                var alt = node.GetAttributeValue("alt", "").Replace(" ","");
+                var alt = node.GetAttributeValue("alt", "").ToLower().Replace(" ","");
                 Console.WriteLine(alt);
                 if (!dict.ContainsKey(alt))
                     dict.Add(alt, src);
@@ -202,19 +185,30 @@ namespace Program
         /// <param name="titleList"></param>
         /// <param name="pageNum">第pageNum页cos图</param>
         /// <returns></returns>
-        public async Task DownLoadAll(Dictionary<string, string> dict, List<string> titleList,int pageNum)
+        public async Task DownLoadAll(Dictionary<string, string> dict,int pageNum)
         {
             // 创建一个SemaphoreSlim对象，初始化为24，表示最多允许24个线程同时运行
+            //通过在每个任务开始时调用semaphore.Wait() 在每个任务结束时调用semaphore.Release()来实现最多24个线程
             var semaphore = new SemaphoreSlim(24);
 
             var tasks = new List<Task>();
             foreach (var key in dict.Keys)
             {
+                await semaphore.WaitAsync();
                 //找到最后一个图片名中的cos
                 //【cos正片】好帅的安哥《凹凸世界》安迷修cos欣赏cosplay-第1张.jpg
                 //使用【cos正片】好帅的安哥《凹凸世界》安迷修cos欣赏  作为文件夹名
                 int folderIndex = key.LastIndexOf("cos");
-                string folderPath = RemoveInvalidChars(key.Substring(0, folderIndex));
+                string folderPath;
+                if(folderIndex > 0)
+                {
+                    folderPath = RemoveInvalidChars(key.Substring(0, folderIndex));
+                }
+                else
+                {
+                    folderPath = RemoveInvalidChars(key);
+                }
+                
                 if (!Directory.Exists(folderPath))
                 {
                     Directory.CreateDirectory($"第{pageNum}页cos图\\{folderPath}");
@@ -235,7 +229,7 @@ namespace Program
                     }
                     finally
                     {
-                        // 完成任务后，释放semaphore
+                        // 完成任务后，释放semaphore  
                         semaphore.Release();
                     }
                     
