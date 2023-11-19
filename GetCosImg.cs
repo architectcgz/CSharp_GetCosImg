@@ -1,5 +1,6 @@
 ﻿using HtmlAgilityPack;
 using System.Diagnostics;
+using System.Threading;
 
 
 namespace Program
@@ -17,9 +18,12 @@ namespace Program
         {
             //string url = "https://www.ciyuanjie.cn/cosplay/";
             var getCosImg = new GetCosImg();
-            Console.WriteLine("请输入要获取的图片的页数pageNum(1<=pageNum<=14)");
-            int pageNum = Convert.ToInt32(Console.ReadLine());
-            var (titleList, imgURLList) = await getCosImg.getImgURLWithPageNum(pageNum);
+            Console.WriteLine("请输入要获取的图片的页数范围下限(1<=下限<=14)");
+            int pageNumLow = Convert.ToInt32(Console.ReadLine());
+            Console.WriteLine("请输入要获取的图片范围上限(上限<=下限<=14)");
+            int pageNumHigh = Convert.ToInt32(Console.ReadLine());
+
+            var (titleList, imgURLList) = await getCosImg.getImgURLWithPageNum(pageNumLow,pageNumHigh);
             var dict = await getCosImg.getEachImgDetail(imgURLList);
             for(int i =0;i<imgURLList.Count;i++)
             {
@@ -32,33 +36,25 @@ namespace Program
     }
     class GetCosImg
     {
-        public async Task<(List<string>, List<string>)> getImgURLWithPageNum(int pageNum)
+        public async Task<(List<string>, List<string>)> getImgURLWithPageNum(int pageNumLow,int pageNumHigh)
         {
-            if (pageNum <= 0)
+            if (pageNumLow <1||pageNumHigh>14)
             {
-                Console.WriteLine("pageNum输入错误,1<=pageNum<=14！");
+                Console.WriteLine("页数范围下限或上限输入错误,1<=页数<=14！");
                 return (new List<string>(), new List<string>());
             }
-            string url = "";
+            string url;
             var imgURLList = new List<string>();
             var imgTitleList = new List<string>();
-            if (pageNum == 1)
+            
+            for(int i = pageNumLow; i <= pageNumHigh; i++)
             {
-                url = "https://www.ciyuanjie.cn/cosplay";
+                url = $"https://www.ciyuanjie.cn/cosplay/page_{i}.html";
                 var result = await getImgURLAndTitleOnePage(url);
                 imgURLList.AddRange(result.Item1);
                 imgTitleList.AddRange(result.Item2);
             }
-            else
-            {
-                for(int i = 1; i <= pageNum; i++)
-                {
-                    url = $"https://www.ciyuanjie.cn/cosplay/page_{i}.html";
-                    var result = await getImgURLAndTitleOnePage(url);
-                    imgURLList.AddRange(result.Item1);
-                    imgTitleList.AddRange(result.Item2);
-                }
-            }
+            
             return (imgURLList, imgTitleList);
         }
         public async Task<(List<string>,List<string>)> getImgURLAndTitleOnePage(string url)
@@ -73,15 +69,18 @@ namespace Program
                 var str = await response.Content.ReadAsStringAsync();
                 HtmlDocument document = new HtmlDocument();
                 document.LoadHtml(str);
+                var titleNodes = document.DocumentNode.SelectNodes("//div[@class='posr-tit']");
+                foreach ( var titleNode in titleNodes )
+                {
+                    titleList.Add(titleNode.InnerText);
+                    //Console.WriteLine(title);
+                }
                 var nodes = document.DocumentNode.SelectNodes("//div[@class='kzpost-data']/a[1]");
                 foreach (var node in nodes)
                 {
                     var href = node.GetAttributeValue("href", "");
                     //Console.WriteLine(href);
                     imgUrlList.Add(href.Substring(1, href.Length - 1));
-                    var title = node.GetAttributeValue("title", "");
-                    titleList.Add(title);
-                    //Console.WriteLine(title);
                 }
             }
             return (titleList,imgUrlList);
@@ -99,11 +98,7 @@ namespace Program
             var document = new HtmlDocument();
             var content = await response.Content.ReadAsStringAsync();
             document.LoadHtml(content);
-            var nodes = document.DocumentNode.SelectNodes("//div[@class='content_left']/p[5]/span/img");
-            nodes ??= document.DocumentNode.SelectNodes("//img[@class='aligncenter']");
-            nodes ??= document.DocumentNode.SelectNodes("//div[@class='content_left']/p[4]/img");
-            nodes ??= document.DocumentNode.SelectNodes("//div[@class='content_left']/p[5]/img");
-
+            var nodes = document.DocumentNode.SelectNodes("//p//img");
             if (nodes == null)
             {
                 return null;
@@ -122,12 +117,15 @@ namespace Program
             }
             return dict;
         }
+        /// <summary>
+        /// 使用基于Task的并行处理获取每一个cos系列的所有图片的url以及title(标题)
+        /// 保存到字典中 title:url
+        /// </summary>
+        /// <param name="imgUrlList"></param>
+        /// <returns></returns>
         public async Task<Dictionary<string,string>> getEachImgDetail(List<string>imgUrlList)
         {
             string detailedUrl = "https://www.ciyuanjie.cn/";
-
-            Stopwatch sw = Stopwatch.StartNew();
-            sw.Start();
             Console.WriteLine($"本页有{imgUrlList.Count}组图片");
             var tasks = new List<Task<Dictionary<string, string>>>();
             for (int i = 0; i < imgUrlList.Count; i++)
@@ -151,9 +149,6 @@ namespace Program
                     }
                 }
             }
-
-            sw.Stop();
-            Console.WriteLine($"已获取第一页所有Img数据，用时{sw.Elapsed.ToString()}");
             return finalDict;    
         }
         private async Task<bool> DownloadFromURL(string url, string storagePath)
@@ -166,7 +161,7 @@ namespace Program
             }
 
             using var httpClient = new HttpClient();
-            httpClient.Timeout = TimeSpan.FromMinutes(4);
+            httpClient.Timeout = TimeSpan.FromMinutes(5);
             httpClient.DefaultRequestHeaders.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/119.0");
             try
             {
@@ -183,24 +178,36 @@ namespace Program
             }
             catch (System.Net.Http.HttpRequestException)
             {
-                Console.WriteLine($"{url}的图片下载失败，跳过...");
+                Console.WriteLine($"{url}的图片下载失败，等待重新下载...");
                 return false;
             }
         }
 
+        /// <summary>
+        /// 去除图片名中与路径相关的非法字符，如\ :等等
+        /// </summary>
+        /// <param name="title"></param>
+        /// <returns></returns>
         static string RemoveInvalidChars(string title)
         {
+            
             char[] invalidChars = Path.GetInvalidFileNameChars();
             return new string(title.Where(c => !invalidChars.Contains(c)).ToArray());
         }
+        /// <summary>
+        /// 基于Task的并行处理下载所有图片
+        /// 如果图片数量过大，会占用非常大的内存，所以考虑使用线程池替代Task并行处理
+        /// </summary>
+        /// <param name="dict"></param>
+        /// <param name="titleList"></param>
+        /// <returns></returns>
         public async Task DownLoadAll(Dictionary<string, string> dict, List<string> titleList)
         {
 
             //创建目录
             for (int i = 0; i < titleList.Count; i++)
             {
-                int index = titleList[i].IndexOf("cosplay");
-                string path = $"{titleList[i].Substring(0, index+7)}";
+                string path = $"{titleList[i]}";
                 path = RemoveInvalidChars(path);
                 Console.WriteLine($"正在创建目录{path}");
 
@@ -211,20 +218,18 @@ namespace Program
             foreach (var key in dict.Keys)
             {
                 //格式为《宿命回响》DESTINY cosplay欣赏@杜杜Dolly_ cosplay-第一张   -第1张去掉-
-                int index = key.IndexOf("cosplay");
-                string path = RemoveInvalidChars(key.Substring(0, index + 7)) + "\\" + key + ".jpg";
-                var cancellationTokenSource = new CancellationTokenSource();
+                int index = key.IndexOf("cosplay",key.IndexOf("cosplay")+1);
+                string path = RemoveInvalidChars(key.Substring(0,index-1)) + "\\" + RemoveInvalidChars(key) + ".jpg";
                 var task = Task.Run(async () =>
                 {
                     Console.WriteLine($"正在将文件保存到{path}");
                     var result = await DownloadFromURL(dict[key], path);
                     if (!result)
                     {
-                        Console.WriteLine($"{key}下载失败，已取消下载任务");
-                        cancellationTokenSource.Cancel();
+                        Console.WriteLine($"{key}下载失败，等待重新下载");
                         return;
                     }
-                }, cancellationTokenSource.Token);
+                });
                 tasks.Add(task);
             }
             await Task.WhenAll(tasks);
